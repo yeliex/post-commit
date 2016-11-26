@@ -19,13 +19,15 @@ function Hook(fn, options) {
   options = options || {};
 
   this.options = options;     // Used for testing only. Ignore this. Don't touch.
-  this.config = {};           // pre-commit configuration from the `package.json`.
+  this.config = {};           // post-commit configuration from the `package.json`.
   this.json = {};             // Actual content of the `package.json`.
   this.npm = '';              // The location of the `npm` binary.
   this.git = '';              // The location of the `git` binary.
   this.root = '';             // The root location of the .git folder.
-  this.status = '';           // Contents of the `git status`.
   this.exit = fn;             // Exit function.
+  this.commit = '';           // The commit get with `git log --oneline -1 head`
+  this.commitMessage = '';           // The commit msg get with `git log --oneline -1 head`
+  this.commitId = '';       // The commit md5 id get with `git log --oneline -1 head`
 
   this.initialize();
 }
@@ -77,15 +79,15 @@ Hook.prototype.exec = function exec(bin, args) {
  * @api private
  */
 Hook.prototype.parse = function parse() {
-  var pre = this.json['pre-commit'] || this.json.precommit
-    , config = !Array.isArray(pre) && 'object' === typeof pre ? pre : {};
+  var post = this.json['post-commit'] || this.json.postcommit
+    , config = !Array.isArray(post) && 'object' === typeof post ? post : {};
 
-  ['silent', 'colors', 'template'].forEach(function each(flag) {
+  ['silent', 'colors'].forEach(function each(flag) {
     var value;
 
     if (flag in config) value = config[flag];
-    else if ('precommit.'+ flag in this.json) value = this.json['precommit.'+ flag];
-    else if ('pre-commit.'+ flag in this.json) value = this.json['pre-commit.'+ flag];
+    else if ('postcommit.' + flag in this.json) value = this.json['postcommit.' + flag];
+    else if ('post-commit.' + flag in this.json) value = this.json['post-commit.' + flag];
     else return;
 
     config[flag] = value;
@@ -94,17 +96,9 @@ Hook.prototype.parse = function parse() {
   //
   // The scripts we need to run can be set under the `run` property.
   //
-  config.run = config.run || pre;
+  config.run = config.run || post;
 
   if ('string' === typeof config.run) config.run = config.run.split(/[, ]+/);
-  if (
-       !Array.isArray(config.run)
-    && this.json.scripts
-    && this.json.scripts.test
-    && this.json.scripts.test !== 'echo "Error: no test specified" && exit 1'
-  ) {
-    config.run = ['test'];
-  }
 
   this.config = config;
 };
@@ -121,8 +115,8 @@ Hook.prototype.log = function log(lines, exit) {
   if ('number' !== typeof exit) exit = 1;
 
   var prefix = this.colors
-  ? '\u001b[38;5;166mpre-commit:\u001b[39;49m '
-  : 'pre-commit: ';
+    ? '\u001b[38;5;166mpost-commit:\u001b[39;49m '
+    : 'post-commit: ';
 
   lines.push('');     // Whitespace at the end of the log.
   lines.unshift('');  // Whitespace at the beginning.
@@ -142,14 +136,17 @@ Hook.prototype.log = function log(lines, exit) {
 
 /**
  * Initialize all the values of the constructor to see if we can run as an
- * pre-commit hook.
+ * pos-commit hook.
  *
  * @api private
  */
 Hook.prototype.initialize = function initialize() {
   ['git', 'npm'].forEach(function each(binary) {
-    try { this[binary] = which.sync(binary); }
-    catch (e) {}
+    try {
+      this[binary] = which.sync(binary);
+    }
+    catch (e) {
+    }
   }, this);
 
   //
@@ -170,35 +167,27 @@ Hook.prototype.initialize = function initialize() {
   //
   if (!this.git) return this.log(this.format(Hook.log.binary, 'git'), 0);
 
-  this.root = this.exec(this.git, ['rev-parse', '--show-toplevel']);
-  this.status = this.exec(this.git, ['status', '--porcelain']);
+  this.commit = this.exec(this.git, ['log', '--oneline', '-1', 'head']);
+  if (this.commit.code) return this.log(Hook.log.commit, 0);
+  this.commit = this.commit.stdout.toString().trim();
+  var commitTmp = this.commit.match(/^(.{7}) (.*)$/);
+  if (!commitTmp) {
+    this.commitMessage = this.commit;
+  } else {
+    this.commitId = commitTmp[1];
+    this.commitMessage = commitTmp[2];
+  }
 
-  if (this.status.code) return this.log(Hook.log.status, 0);
+  this.root = this.exec(this.git, ['rev-parse', '--show-toplevel']);
   if (this.root.code) return this.log(Hook.log.root, 0);
 
-  this.status = this.status.stdout.toString().trim();
   this.root = this.root.stdout.toString().trim();
 
   try {
     this.json = require(path.join(this.root, 'package.json'));
     this.parse();
-  } catch (e) { return this.log(this.format(Hook.log.json, e.message), 0); }
-
-  //
-  // We can only check for changes after we've parsed the package.json as it
-  // contains information if we need to suppress the empty message or not.
-  //
-  if (!this.status.length && !this.options.ignorestatus) {
-    return this.log(Hook.log.empty, 0);
-  }
-
-  //
-  // If we have a git template we should configure it before checking for
-  // scripts so it will still be applied even if we don't have anything to
-  // execute.
-  //
-  if (this.config.template) {
-    this.exec(this.git, ['config', 'commit.template', '"'+ this.config.template +'"']);
+  } catch (e) {
+    return this.log(this.format(Hook.log.json, e.message), 0);
   }
 
   if (!this.config.run) return this.log(Hook.log.run, 0);
@@ -225,7 +214,7 @@ Hook.prototype.run = function runner() {
     // this doesn't have the required `isAtty` information that libraries use to
     // output colors resulting in script output that doesn't have any color.
     //
-    spawn(hooked.npm, ['run', script, '--silent'], {
+    spawn(hooked.npm, ['run', script, '--silent', 'commit=' + hooked.commit, 'commit-message=' + hooked.commitMessage, 'commit-id' + hooked.commitId,], {
       env: process.env,
       cwd: hooked.root,
       stdio: [0, 1, 2]
@@ -255,22 +244,27 @@ Hook.prototype.format = util.format;
 Hook.log = {
   binary: [
     'Failed to locate the `%s` binary, make sure it\'s installed in your $PATH.',
-    'Skipping the pre-commit hook.'
+    'Skipping the post-commit hook.'
+  ].join('\n'),
+
+  commit: [
+    'Failed to get the latest commit with `git log --oneline -1 head`',
+    'Skipping the post-commit hook.'
   ].join('\n'),
 
   status: [
     'Failed to retrieve the `git status` from the project.',
-    'Skipping the pre-commit hook.'
+    'Skipping the post-commit hook.'
   ].join('\n'),
 
   root: [
     'Failed to find the root of this git repository, cannot locate the `package.json`.',
-    'Skipping the pre-commit hook.'
+    'Skipping the post-commit hook.'
   ].join('\n'),
 
   empty: [
-    'No changes detected.',
-    'Skipping the pre-commit hook.'
+    'No commit detected.',
+    'Skipping the post-commit hook.'
   ].join('\n'),
 
   json: [
@@ -278,19 +272,19 @@ Hook.log = {
     '',
     '  %s',
     '',
-    'Skipping the pre-commit hook.'
+    'Skipping the post-commit hook.'
   ].join('\n'),
 
   run: [
-    'We have nothing pre-commit hooks to run. Either you\'re missing the `scripts`',
-    'in your `package.json` or have configured pre-commit to run nothing.',
-    'Skipping the pre-commit hook.'
+    'We have nothing post-commit hooks to run. Either you\'re missing the `scripts`',
+    'in your `package.json` or have configured post-commit to run nothing.',
+    'Skipping the post-commit hook.'
   ].join('\n'),
 
   failure: [
-    'We\'ve failed to pass the specified git pre-commit hooks as the `%s`',
+    'We\'ve failed to pass the specified git post-commit hooks as the `%s`',
     'hook returned an exit code (%d). If you\'re feeling adventurous you can',
-    'skip the git pre-commit hooks by adding the following flags to your commit:',
+    'skip the git post-commit hooks by adding the following flags to your commit:',
     '',
     '  git commit -n (or --no-verify)',
     '',

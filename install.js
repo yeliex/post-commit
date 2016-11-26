@@ -13,12 +13,12 @@ var fs = require('fs')
 //
 // Gather the location of the possible hidden .git directory, the hooks
 // directory which contains all git hooks and the absolute location of the
-// `pre-commit` file. The path needs to be absolute in order for the symlinking
+// `post-commit` file. The path needs to be absolute in order for the symlinking
 // to work correctly.
 //
 var git = path.resolve(root, '.git')
   , hooks = path.resolve(git, 'hooks')
-  , precommit = path.resolve(hooks, 'pre-commit');
+  , postcommit = path.resolve(hooks, 'post-commit');
 
 //
 // Bail out if we don't have an `.git` directory as the hooks will not get
@@ -28,23 +28,23 @@ if (!exists(git) || !fs.lstatSync(git).isDirectory()) return;
 if (!exists(hooks)) fs.mkdirSync(hooks);
 
 //
-// If there's an existing `pre-commit` hook we want to back it up instead of
+// If there's an existing `post-commit` hook we want to back it up instead of
 // overriding it and losing it completely as it might contain something
 // important.
 //
-if (exists(precommit) && !fs.lstatSync(precommit).isSymbolicLink()) {
-  console.log('pre-commit:');
-  console.log('pre-commit: Detected an existing git pre-commit hook');
-  fs.writeFileSync(precommit +'.old', fs.readFileSync(precommit));
-  console.log('pre-commit: Old pre-commit hook backuped to pre-commit.old');
-  console.log('pre-commit:');
+if (exists(postcommit) && !fs.lstatSync(postcommit).isSymbolicLink()) {
+  console.log('post-commit:');
+  console.log('post-commit: Detected an existing git post-commit hook');
+  fs.writeFileSync(postcommit +'.old', fs.readFileSync(postcommit));
+  console.log('post-commit: Old post-commit hook backuped to post-commit.old');
+  console.log('post-commit:');
 }
 
 //
 // We cannot create a symlink over an existing file so make sure it's gone and
 // finish the installation process.
 //
-try { fs.unlinkSync(precommit); }
+try { fs.unlinkSync(postcommit); }
 catch (e) {}
 
 //
@@ -52,11 +52,11 @@ catch (e) {}
 // installation of this module to completely fail. We should just output the
 // error instead destroying the whole npm install process.
 //
-try { fs.symlinkSync(path.relative(hooks, hook), precommit, 'file'); }
+try { fs.symlinkSync(path.relative(hooks, hook), postcommit, 'file'); }
 catch (e) {
-  console.error('pre-commit:');
-  console.error('pre-commit: Failed to symlink the hook file in your .git/hooks folder because:');
-  console.error('pre-commit: '+ e.message);
-  console.error('pre-commit: The hook was not installed.');
-  console.error('pre-commit:');
+  console.error('post-commit:');
+  console.error('post-commit: Failed to symlink the hook file in your .git/hooks folder because:');
+  console.error('post-commit: '+ e.message);
+  console.error('post-commit: The hook was not installed.');
+  console.error('post-commit:');
 }

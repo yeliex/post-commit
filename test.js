@@ -1,5 +1,5 @@
 /* istanbul ignore next */
-describe('pre-commit', function () {
+describe('post-commit', function () {
   'use strict';
 
   var assume = require('assume')
@@ -27,9 +27,9 @@ describe('pre-commit', function () {
       });
     });
 
-    it('extracts configuration values from precommit.<flag>', function () {
+    it('extracts configuration values from postcommit.<flag>', function () {
       hook.json = {
-        'precommit.silent': true
+        'postcommit.silent': true
       };
 
       assume(hook.silent).is.false();
@@ -40,10 +40,10 @@ describe('pre-commit', function () {
       assume(hook.silent).is.true();
     });
 
-    it('extracts configuration values from pre-commit.<flag>', function () {
+    it('extracts configuration values from post-commit.<flag>', function () {
       hook.json = {
-        'pre-commit.silent': true,
-        'pre-commit.colors': false
+        'post-commit.silent': true,
+        'post-commit.colors': false
       };
 
       assume(hook.silent).is.false();
@@ -56,9 +56,9 @@ describe('pre-commit', function () {
       assume(hook.colors).is.false();
     });
 
-    it('normalizes the `pre-commit` to an array', function () {
+    it('normalizes the `post-commit` to an array', function () {
       hook.json = {
-        'pre-commit': 'test, cows, moo'
+        'post-commit': 'test, cows, moo'
       };
 
       hook.parse();
@@ -69,9 +69,9 @@ describe('pre-commit', function () {
       assume(hook.config.run).contains('moo');
     });
 
-    it('normalizes the `precommit` to an array', function () {
+    it('normalizes the `postcommit` to an array', function () {
       hook.json = {
-        'precommit': 'test, cows, moo'
+        'postcommit': 'test, cows, moo'
       };
 
       hook.parse();
@@ -82,9 +82,9 @@ describe('pre-commit', function () {
       assume(hook.config.run).contains('moo');
     });
 
-    it('allows `pre-commit` object based syntax', function () {
+    it('allows `post-commit` object based syntax', function () {
       hook.json = {
-        'pre-commit': {
+        'post-commit': {
           run: 'test scripts go here',
           silent: true,
           colors: false
@@ -126,13 +126,13 @@ describe('pre-commit', function () {
   });
 
   describe('#log', function () {
-    it('prefixes the logs with `pre-commit`', function (next) {
+    it('prefixes the logs with `post-commit`', function (next) {
       var hook = new Hook(function (code, lines) {
         assume(code).equals(1);
         assume(lines).is.a('array');
 
-        assume(lines[0]).includes('pre-commit');
-        assume(lines[1]).includes('pre-commit');
+        assume(lines[0]).includes('post-commit');
+        assume(lines[1]).includes('post-commit');
         assume(lines[1]).includes('foo');
         assume(lines).has.length(3);
 
@@ -201,7 +201,7 @@ describe('pre-commit', function () {
       }, { ignorestatus: true });
 
       console.error = function (line) {
-        assume(line).contains('pre-commit: ');
+        assume(line).contains('post-commit: ');
       };
 
       hook.config.colors = false;
@@ -218,7 +218,7 @@ describe('pre-commit', function () {
       }, { ignorestatus: true });
 
       console.log = function (line) {
-        assume(line).contains('pre-commit: ');
+        assume(line).contains('post-commit: ');
       };
 
       hook.config.colors = false;
