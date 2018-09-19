@@ -1,5 +1,8 @@
 # post-commit
 
+## Deprecated
+Use Husky for hooks instead
+
 [![Version npm][version]](http://browsenpm.org/package/post-commit)[![Build Status][build]](https://travis-ci.org/yeliex/post-commit)[![Dependencies][david]](https://david-dm.org/yeliex/post-commit)[![Coverage Status][cover]](https://coveralls.io/r/yeliex/post-commit?branch=master)
 
 [version]: http://img.shields.io/npm/v/post-commit.svg?style=flat-square
